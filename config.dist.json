@@ -1,0 +1,12 @@
+{
+  "wlan_ssid": "abcde",
+  "wlan_password": "abcde",
+  "aranet_api": "abcde",
+  "aranet_username": "abcde",
+  "aranet_sensor": 12345,
+  "aranet_password": "abcde",
+  "mqtt_user": "abcde",
+  "mqtt_host": "abcde",
+  "mqtt_key": "abcde",
+  "mqtt_topic": "abcde"
+}
