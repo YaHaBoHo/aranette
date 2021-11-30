@@ -1,4 +1,5 @@
 import usocket
+import ujson
 import ussl
 
 
@@ -41,28 +42,31 @@ class Response:
         return ujson.loads(self.content)
 
 
-def request(method, url, data=None, json=None, headers={}, stream=None):
-
+def parse_url(url):
+    # Split URL
     try:
-        proto, dummy, host, path = url.split("/", 3)
+        proto, _, host, path = url.split("/", 3)
     except ValueError:
-        proto, dummy, host = url.split("/", 2)
+        proto, _, host = url.split("/", 2)
         path = ""
-
+    # Identify protocol
     if proto == "http:":
         port = 80
     elif proto == "https:":
         port = 443
     else:
         raise RequestError("Unsupported protocol: " + proto)
-
+    # Identify port
     if ":" in host:
         host, port = host.split(":", 1)
         port = int(port)
+    # Done
+    return proto, host, port, path
 
-    ai = usocket.getaddrinfo(host, port, 0, usocket.SOCK_STREAM)
-    ai = ai[0]
 
+def request(method, url, data=None, json=None, headers={}, stream=None):
+    proto, host, port, path = parse_url(url)
+    ai = usocket.getaddrinfo(host, port, 0, usocket.SOCK_STREAM)[0]
     s = usocket.socket(ai[0], ai[1], ai[2])
     try:
         s.connect(ai[-1])
@@ -79,8 +83,6 @@ def request(method, url, data=None, json=None, headers={}, stream=None):
             s.write(b"\r\n")
         if json is not None:
             assert data is None
-            import ujson
-
             data = ujson.dumps(json)
             s.write(b"Content-Type: application/json\r\n")
         if data:

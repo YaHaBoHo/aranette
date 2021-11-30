@@ -25,7 +25,6 @@ def hash_sha256(text, rounds=1):
     # Return
     return hash
 
-
 def time_of_day():
     tod = utime.time() % 86400
     th = tod // 3600
@@ -40,8 +39,7 @@ class Aranette():
                  aranet_api, aranet_username, aranet_password, aranet_sensor,
                  mqtt_host, mqtt_user, mqtt_key, mqtt_topic,
                  oled_sda="P9", oled_scl="P10", oled_switch="P11",
-                 interval=600,
-                 mqtt_port=1883):
+                 interval=600, auto_reboot=1800, mqtt_port=1883):
         # OLED
         self.oled_sda = oled_sda
         self.oled_scl = oled_scl
@@ -76,9 +74,11 @@ class Aranette():
         self.aranet_password = str(aranet_password)
         self.aranet_sensor = str(aranet_sensor)
         self._last_measured = 0
+        self._last_polled = 0
         self._next_poll = 0
         # Internals
         self.interval = int(interval)
+        self.auto_reboot = int(auto_reboot)
         self._running = False
 
     def get_oled(self):
@@ -175,10 +175,21 @@ class Aranette():
         # Display
         self.write_oled("{} {}".format(nugget, "*" if warning else ""))
 
+    def reboot(self, force=False):
+        if force:
+            print("Rebooting board [FORCED].")
+            machine.reset()
+        if self.auto_reboot > 0:
+            if utime.time() > min(self._last_polled, self._last_published) + self.auto_reboot:
+                print("Rebooting board. Auto reboot timer was exceeded.")
+                machine.reset()
+
     def loop(self):
         self._running = True
         self._last_measured = 0
         self._next_poll = 0
+        # Initialize those two to current time to avoid insta-reboot by watchdog
+        self._last_polled = self._last_published = utime.time()
         self.write_oled("Start...")
         while self._running:
             if utime.time() > self._next_poll:
@@ -187,8 +198,12 @@ class Aranette():
                 # Extract metrics
                 try:
                     sensor_data = self.poll()
+                    self._last_polled = utime.time()
                     if sensor_data['time'] > self._last_measured:
+                        # Note that _last_measured reflects Aranet OWN time, while _last_polled reflects board time
+                        # We need both but they are not necessarily in sync, so we store both.
                         self._last_measured = sensor_data['time']
+                        # Process results
                         self.publish(sensor_data['h'])
                         self.display(sensor_data['h'], warning=utime.time() > self._last_published + self.interval)
                     else:
@@ -196,6 +211,8 @@ class Aranette():
                 except requests.RequestError as err:
                     print("Could not fetch data from Aranet : {}".format(err))
                     self.display("Error")
+            # Reboot needed?
+            self.reboot(force=False)
             # Sleep until next poll
             utime.sleep(1)
 

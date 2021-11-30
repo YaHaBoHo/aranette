@@ -10,7 +10,15 @@
 
 import usocket as socket
 import ustruct as struct
-# from ubinascii import hexlify
+
+
+def socket_call(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except OSError as err:
+            raise MQTTError("{} : {}".format(err.__class__.__name__, err))
+    return wrapper
 
 
 class MQTTError(Exception):
@@ -38,10 +46,12 @@ class MQTTClient:
         self.lw_qos = 0
         self.lw_retain = False
 
+    @socket_call
     def _send_str(self, s):
         self.sock.write(struct.pack("!H", len(s)))
         self.sock.write(s)
 
+    @socket_call
     def _recv_len(self):
         n = 0
         sh = 0
@@ -63,6 +73,7 @@ class MQTTClient:
         self.lw_qos = qos
         self.lw_retain = retain
 
+    @socket_call
     def connect(self, clean_session=True):
         self.sock = socket.socket()
         self.sock.connect(self.addr)
@@ -97,13 +108,16 @@ class MQTTClient:
             raise MQTTError(resp[3])
         return resp[2] & 1
 
+    @socket_call
     def disconnect(self):
         self.sock.write(b"\xe0\0")
         self.sock.close()
 
+    @socket_call
     def ping(self):
         self.sock.write(b"\xc0\0")
 
+    @socket_call
     def publish(self, topic, msg, retain=False, qos=0):
         pkt = bytearray(b"\x30\0\0\0")
         pkt[0] |= qos << 1 | retain
@@ -138,6 +152,7 @@ class MQTTClient:
         elif qos == 2:
             assert 0
 
+    @socket_call
     def subscribe(self, topic, qos=0):
         assert self.cb is not None, "Subscribe callback is not set"
         pkt = bytearray(b"\x82\0\0\0")
@@ -159,6 +174,7 @@ class MQTTClient:
     # Subscribed messages are delivered to a callback previously
     # set by .set_callback() method. Other (internal) MQTT
     # messages processed internally.
+    @socket_call
     def wait_msg(self):
         res = self.sock.read(1)
         self.sock.setblocking(True)
@@ -194,6 +210,7 @@ class MQTTClient:
     # Checks whether a pending message from server is available.
     # If not, returns immediately with None. Otherwise, does
     # the same processing as wait_msg.
+    @socket_call
     def check_msg(self):
         self.sock.setblocking(False)
         return self.wait_msg()

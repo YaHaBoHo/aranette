@@ -8,5 +8,11 @@
   "mqtt_user": "abcde",
   "mqtt_host": "abcde",
   "mqtt_key": "abcde",
-  "mqtt_topic": "abcde"
+  "mqtt_topic": "abcde",
+  "oled_sda": "P9",
+  "oled_scl": "P10",
+  "oled_switch": "P11",
+  "interval": 600,
+  "auto_reboot": 1800,
+  "mqtt_port": 1883
 }
