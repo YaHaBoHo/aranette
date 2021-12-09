@@ -1,35 +1,13 @@
-import hashlib
-import binascii
 import utime
 import machine
 from network import WLAN
 import lib.urequests as requests
 from lib.ssd1306 import SSD1306, OledError
 from lib.mqtt import MQTTClient, MQTTError
+from lib.common import hash_sha256, time_of_day
 
 
-CFG_ENCODING = "utf-8"
 CFG_SWITCH_BOUNCE = 150
-
-
-def hash_sha256(text, rounds=1):
-    # Initialize
-    hash = text
-    # Process
-    for _ in range(rounds):
-        hash = binascii.hexlify(
-            hashlib.sha256(
-                hash.encode(CFG_ENCODING)
-            ).digest()
-        ).decode(CFG_ENCODING)
-    # Return
-    return hash
-
-def time_of_day():
-    tod = utime.time() % 86400
-    th = tod // 3600
-    tm = (tod % 3600) // 60
-    return "{:02d}:{:02d}".format(th, tm)
 
 
 class Aranette():
@@ -129,7 +107,7 @@ class Aranette():
                 return v
 
     def toggle_oled(self, pin):
-        if utime.ticks_diff(utime.ticks_ms(), self._oled_switch_ticker) > CFG_SWITCH_BOUNCE:
+        if abs(utime.ticks_diff(utime.ticks_ms(), self._oled_switch_ticker)) > CFG_SWITCH_BOUNCE:
             self._oled_switch_ticker = utime.ticks_ms()
             self._oled_active = not self._oled_active
             self.write_oled()
@@ -140,7 +118,7 @@ class Aranette():
         # New text?
         if text:
             if stamp:
-                self._oled_buffer.append("{}|{}".format(time_of_day(), text))
+                self._oled_buffer.append("{}|{}".format(time_of_day(offset=1), text))
             else:
                 self._oled_buffer.append(text)
         # Rotate buffer?
@@ -226,6 +204,11 @@ class Aranette():
 
 
 if __name__ == "__main__":
+    # Load config
     import ujson
     with open("config.json") as f:
-        Aranette(**ujson.load(f)).go()
+        ara_cfg = ujson.load(f)
+    # Spawn handler
+    ara = Aranette(**ara_cfg)
+    # Go!
+    ara.go()

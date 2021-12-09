@@ -1,4 +1,31 @@
 import utime
+import hashlib
+import binascii
+
+
+CFG_ENCODING = "utf-8"
+
+
+def hash_sha256(text, rounds=1):
+    # Initialize
+    hash = text
+    # Process
+    for _ in range(rounds):
+        hash = binascii.hexlify(
+            hashlib.sha256(
+                hash.encode(CFG_ENCODING)
+            ).digest()
+        ).decode(CFG_ENCODING)
+    # Return
+    return hash
+
+
+def time_of_day(offset=0):
+    tod = offset * 3600 + utime.time() % 86400
+    th = tod // 3600
+    tm = (tod % 3600) // 60
+    return "{:02d}:{:02d}".format(th, tm)
+
 
 class Roller():
 
